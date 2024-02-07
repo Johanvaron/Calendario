@@ -1,0 +1,87 @@
+<script setup lang="ts">
+import { ref, watch } from 'vue';
+import { useHolidayStore } from '../store/holidayStore';
+
+// Variable reactiva para almacenar la fecha seleccionada en el calendario
+const selectedDate = ref<string | null>(null);
+
+// Acceso al almacén de feriados utilizando el hook useHolidayStore
+const holidayStore = useHolidayStore();
+
+// Configuración del idioma del calendario
+const locale = 'es';
+
+// Variable reactiva para controlar la visibilidad del mensaje de advertencia
+const showMessage = ref(false);
+
+// Carga inicial de los feriados para el país 'CO' (Colombia)
+holidayStore.fetchHolidays('CO');
+
+// Función para verificar si una fecha es un día festivo
+const isHoliday = (date: any) => {
+  const formattedDate = new Date(date).toISOString().split('T')[0];
+  return holidayStore.holidays.some(holiday => holiday.date === formattedDate);
+};
+
+// Función para determinar si una fecha es permitida (no es domingo, no es día festivo y no ha pasado)
+const allowedDates = (date: any) => {
+  const currentDate = new Date(new Date().toDateString()); // Asegurarse de comparar solo la fecha, sin tiempo
+  const selectedDate = new Date(new Date(date).toDateString());
+
+  const dayOfWeek = selectedDate.getDay();
+  const isPastDate = selectedDate < currentDate;
+  const isHolidayDate = isHoliday(selectedDate.toISOString().split('T')[0]); // Asegurar formato correcto para comparación
+
+  // Permitir solo fechas futuras, que no sean domingos ni días festivos
+  return !isPastDate && dayOfWeek !== 0 && !isHolidayDate;
+};
+
+// Vigilancia de cambios en la fecha seleccionada
+watch(selectedDate, (newDate: any) => {
+  if (newDate) {
+    const dayOfWeek = new Date(newDate).getDay();
+    const holidayCheck = isHoliday(newDate);
+
+    // Actualización de showMessage basada en la selección de días no permitidos
+    showMessage.value = dayOfWeek === 0 || holidayCheck;
+
+    // Si showMessage es verdadero, se restablece la fecha seleccionada a null
+    if (showMessage.value) {
+      selectedDate.value = null;
+    }
+  }
+});
+</script>
+
+
+<template>
+  <v-col>
+    <v-container>
+      <div class="calendar-container">
+        <!-- Añadir color deep-purple accent-4 al v-date-picker -->
+        <v-date-picker v-model="selectedDate" :locale="locale" :allowed-dates="allowedDates"
+          color="deep-purple accent-4"></v-date-picker>
+        <div v-if="showMessage" class="message">
+          Los domingos y días festivos no se pueden seleccionar.
+        </div>
+      </div>
+    </v-container>
+  </v-col>
+</template>
+<style scoped>
+/* Estilos específicos para el contenedor del calendario */
+.calendar-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Estilos específicos para el mensaje de advertencia */
+.message {
+  margin-top: 20px;
+  color: #FF5252;
+  font-weight: bold;
+  text-align: center;
+}
+</style>

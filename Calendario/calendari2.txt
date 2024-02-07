@@ -1,0 +1,76 @@
+
+<script setup lang="ts">
+import { ref, watch } from 'vue';
+import { useHolidayStore } from '../store/holidayStore';
+
+const selectedDate = ref<string | null>(null);
+const formattedSelectedDate = ref('');
+const menu = ref(false);
+const holidayStore = useHolidayStore();
+const locale = 'es';
+const showMessage = ref(false);
+
+holidayStore.fetchHolidays('CO');
+
+const isHoliday = (date: string) => {
+  const formattedDate = new Date(date).toISOString().split('T')[0];
+  return holidayStore.holidays.some(holiday => holiday.date === formattedDate);
+};
+
+const allowedDates = (date: Date) => {
+  const currentDate = new Date().setHours(0, 0, 0, 0);
+  const selectedDay = new Date(date).setHours(0, 0, 0, 0);
+
+  const dayOfWeek = new Date(selectedDay).getDay();
+  const isPastDate = selectedDay < currentDate;
+  const isHolidayDate = isHoliday(new Date(date).toISOString().split('T')[0]);
+
+  return !isPastDate && dayOfWeek !== 0 && !isHolidayDate;
+};
+
+watch(selectedDate, (newDate) => {
+  if (newDate) {
+    const dayOfWeek = new Date(newDate).getDay();
+    const holidayCheck = isHoliday(new Date(newDate).toISOString().split('T')[0]);
+
+    showMessage.value = dayOfWeek === 0 || holidayCheck;
+    if (showMessage.value) {
+      selectedDate.value = null;
+      formattedSelectedDate.value = '';
+    } else {
+      // Formatea la fecha seleccionada para mostrarla en el campo de texto
+      formattedSelectedDate.value = new Date(newDate).toLocaleDateString(locale);
+    }
+  }
+});
+</script>
+
+<template>
+  <v-container>
+    <v-row justify="center">
+      <!-- Menú desplegable que contiene el v-date-picker -->
+      <v-menu ref="menu" v-model="menu" :close-on-content-click="false" :nudge-right="40"
+        :return-value.sync="selectedDate" transition="scale-transition" offset-y min-width="290px">
+        <template v-slot:activator="{ on, attrs }">
+          <!-- Campo de texto que activa el menú desplegable -->
+          <v-text-field v-model="formattedSelectedDate" label="Selecciona una fecha" hint="MM/DD/YYYY" persistent-hint
+            v-bind="attrs" v-on="on" prepend-icon="mdi-calendar" readonly></v-text-field>
+        </template>
+        <!-- El v-date-picker que se muestra en el menú desplegable -->
+        <v-date-picker v-model="selectedDate" :locale="locale" :allowed-dates="allowedDates" no-title
+          @input="menu = false"></v-date-picker>
+      </v-menu>
+    </v-row>
+    <!-- Mensaje de advertencia si se selecciona un domingo o día festivo -->
+    <div v-if="showMessage" class="message">
+      Los domingos y días festivos no se pueden seleccionar.
+    </div>
+  </v-container>
+</template>
+
+
+<style scoped>
+.message {
+  /* Tus estilos para el mensaje de advertencia */
+}
+</style>
